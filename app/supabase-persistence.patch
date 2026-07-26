@@ -1,0 +1,817 @@
+From fb98d1fae2218b829a04f8e686b780833e44a048 Mon Sep 17 00:00:00 2001
+From: AI PM Platform <dev@example.com>
+Date: Sun, 26 Jul 2026 21:28:48 +0000
+Subject: [PATCH] Add Supabase auth (magic link) and persistence for progress +
+ projects
+
+---
+ .env.example                     |  2 +
+ .gitignore                       |  1 +
+ README.md                        | 48 +++++++++++++----
+ package.json                     |  1 +
+ src/App.jsx                      |  9 +++-
+ src/components/AuthGate.jsx      | 58 +++++++++++++++++++++
+ src/components/ConceptTree.jsx   | 13 ++++-
+ src/components/DomainPicker.jsx  | 86 +++++++++++++++++++++---------
+ src/components/RoadmapScreen.jsx | 13 ++++-
+ src/data/projects.js             | 34 +++++++-----
+ src/hooks/useAuth.jsx            | 37 +++++++++++++
+ src/hooks/useProgress.js         | 71 ++++++++++++++++++-------
+ src/lib/supabaseClient.js        | 14 +++++
+ src/main.jsx                     |  8 ++-
+ src/styles.css                   | 89 ++++++++++++++++++++++++++++++++
+ supabase-schema.sql              | 41 +++++++++++++++
+ 16 files changed, 452 insertions(+), 73 deletions(-)
+ create mode 100644 .env.example
+ create mode 100644 src/components/AuthGate.jsx
+ create mode 100644 src/hooks/useAuth.jsx
+ create mode 100644 src/lib/supabaseClient.js
+ create mode 100644 supabase-schema.sql
+
+diff --git a/.env.example b/.env.example
+new file mode 100644
+index 0000000..b98fa3d
+--- /dev/null
++++ b/.env.example
+@@ -0,0 +1,2 @@
++VITE_SUPABASE_URL=your-project-url-here
++VITE_SUPABASE_ANON_KEY=your-anon-public-key-here
+diff --git a/.gitignore b/.gitignore
+index 0ca39c0..dc5d4c8 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,3 +1,4 @@
+ node_modules
+ dist
+ .DS_Store
++.env
+diff --git a/README.md b/README.md
+index ccc4092..c5da720 100644
+--- a/README.md
++++ b/README.md
+@@ -1,7 +1,18 @@
+-# Concept tree + roadmap — stages 2-3
++# Concept tree + roadmap — stages 2-4 (Supabase auth + persistence)
+ 
+-Real React frontend (Vite), reading from stage 1/3 JSON content files —
+-no backend, no paid services.
++Real React frontend (Vite), content from stage 1/3 JSON files, progress
++and projects now persisted in Supabase (free tier) instead of
++localStorage. Sign-in required (magic link email, no password).
++
++## One-time Supabase setup (do this before `npm install`)
++
++1. Create a free project at supabase.com.
++2. Project Settings → API → copy the **Project URL** and **anon public** key.
++3. SQL Editor → paste and run `supabase-schema.sql` from this folder.
++4. Copy `.env.example` to `.env` and fill in the two values from step 2:
++   ```
++   cp .env.example .env
++   ```
+ 
+ ## Run it locally
+ 
+@@ -10,12 +21,15 @@ npm install
+ npm run dev
+ ```
+ 
+-Opens at `http://localhost:5173`. Two entry points, matching the two
+-paths in your original doc:
++Opens at `http://localhost:5173`. You'll be asked to sign in with your
++email (a magic link is sent — click it, then come back to the tab).
++Once signed in, two entry points, matching the two paths in your
++original doc:
+ - **Type an idea in the search bar** ("I want to build a banking app in
+   C++...") → goes through the clarifying-question wizard (confirm
+   domain, tech comfort, timeframe, depth), then you choose Start
+-  learning or Jump to roadmap at the end.
++  learning or Jump to roadmap at the end. This also saves the idea as
++  a project under "Your Projects" on the home screen.
+ - **Tap a category card's Learn/Build button** → skips the wizard,
+   goes straight to that domain's tree or roadmap. This is the fast
+   path for someone who already knows exactly what they want.
+@@ -31,21 +45,26 @@ src/
+     domains.js                  exports all three concept trees
+     cpp-banking-roadmap.json    roadmap content (schema in ROADMAP_SCHEMA.md)
+     roadmaps.js                  exports the roadmaps map + hasRoadmap()
++    projects.js                  Supabase queries for saved "Your Projects" rows
++  lib/
++    supabaseClient.js            Supabase client, reads from .env
+   components/
+-    DomainPicker.jsx             landing screen — search bar + category cards
++    DomainPicker.jsx             landing screen — search bar + category cards + Your Projects
+     IntakeWizard.jsx              clarifying-question flow (fixed steps, no LLM)
+     ConceptTree.jsx               concept tree screen
+     TreeNode.jsx                   recursive expand/collapse node
+     TopicModal.jsx                  resources / explain-here modal
+     RoadmapScreen.jsx              day-path screen
+     DayModal.jsx                    per-day task checklist + "I'm stuck" box
++    AuthGate.jsx                   magic-link sign-in screen, gates the whole app
+   hooks/
+-    useProgress.js                localStorage-backed done-tracking,
+-                                    namespaced ("tree" vs "roadmap") so a
+-                                    domain's learning progress and build
+-                                    progress don't collide
++    useProgress.js                Supabase-backed done-tracking, namespaced
++                                    ("tree" vs "roadmap") so a domain's learning
++                                    progress and build progress don't collide
++    useAuth.jsx                    session state, sign in/out
+   App.jsx                          switches between picker / tree / roadmap
+   styles.css
++supabase-schema.sql                run once in Supabase's SQL editor
+ ```
+ 
+ ## Adding a new domain
+@@ -87,3 +106,10 @@ build command `npm run build`, publish directory `dist`.
+ - If the search bar's keyword match fails, there's no wizard fallback
+   yet — the user just sees the "no match" hint and picks a card
+   manually.
++- Auth is magic-link only (no password, no Google/GitHub sign-in yet).
++- Free Supabase tier limits: projects pause after a week of no API
++  activity (a visit or API call un-pauses them, no data lost) and
++  there's a monthly active-user cap — both are non-issues at this
++  project's size, but worth knowing about if it ever gets real traffic.
++- No offline support — every progress checkbox now requires a network
++  request to Supabase, unlike the old instant localStorage writes.
+diff --git a/package.json b/package.json
+index 8b691a1..4ceecaa 100644
+--- a/package.json
++++ b/package.json
+@@ -9,6 +9,7 @@
+     "preview": "vite preview"
+   },
+   "dependencies": {
++    "@supabase/supabase-js": "^2.45.0",
+     "react": "^18.3.1",
+     "react-dom": "^18.3.1"
+   },
+diff --git a/src/App.jsx b/src/App.jsx
+index 4863de2..b3e4cb4 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -6,8 +6,12 @@ import IntakeWizard from "./components/IntakeWizard.jsx";
+ import { domains } from "./data/domains.js";
+ import { roadmaps, hasRoadmap } from "./data/roadmaps.js";
+ import { createProject } from "./data/projects.js";
++import { useAuth } from "./hooks/useAuth.jsx";
+ 
+ export default function App() {
++  const { session } = useAuth();
++  const userId = session?.user?.id;
++
+   // view.screen is one of: "picker" | "wizard" | "tree" | "roadmap"
+   const [view, setView] = useState({ screen: "picker" });
+ 
+@@ -18,8 +22,9 @@ export default function App() {
+           domainId={view.domainId}
+           title={view.query}
+           onAbort={() => setView({ screen: "picker" })}
+-          onFinish={(domainId, projectTitle, answers, result) => {
+-            const project = createProject({
++          onFinish={async (domainId, projectTitle, answers, result) => {
++            const project = await createProject({
++              userId,
+               title: projectTitle,
+               domainId,
+               comfort: answers.comfort,
+diff --git a/src/components/AuthGate.jsx b/src/components/AuthGate.jsx
+new file mode 100644
+index 0000000..f610988
+--- /dev/null
++++ b/src/components/AuthGate.jsx
+@@ -0,0 +1,58 @@
++import { useState } from "react";
++import { useAuth } from "../hooks/useAuth.jsx";
++
++export default function AuthGate({ children }) {
++  const { session, signInWithEmail } = useAuth();
++  const [email, setEmail] = useState("");
++  const [sent, setSent] = useState(false);
++  const [error, setError] = useState(null);
++  const [sending, setSending] = useState(false);
++
++  // Still checking whether a session already exists (e.g. page refresh).
++  if (session === undefined) {
++    return <div className="auth-loading">Loading…</div>;
++  }
++
++  // Signed in — render the actual app.
++  if (session) {
++    return children;
++  }
++
++  // Signed out — show the sign-in form.
++  async function handleSend() {
++    setError(null);
++    setSending(true);
++    const { error } = await signInWithEmail(email);
++    setSending(false);
++    if (error) setError(error.message);
++    else setSent(true);
++  }
++
++  return (
++    <div className="auth-screen">
++      <div className="auth-card">
++        <h1>Sign in</h1>
++        <p className="subtitle">
++          Enter your email — we'll send a magic link, no password to remember.
++        </p>
++        {sent ? (
++          <p className="auth-sent">Check your email for a sign-in link, then come back here.</p>
++        ) : (
++          <>
++            <input
++              type="email"
++              placeholder="you@example.com"
++              value={email}
++              onChange={e => setEmail(e.target.value)}
++              onKeyDown={e => e.key === "Enter" && email && handleSend()}
++            />
++            <button onClick={handleSend} disabled={!email || sending}>
++              {sending ? "Sending…" : "Send magic link"}
++            </button>
++            {error && <p className="auth-error">{error}</p>}
++          </>
++        )}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/components/ConceptTree.jsx b/src/components/ConceptTree.jsx
+index e0ee65f..d1cada6 100644
+--- a/src/components/ConceptTree.jsx
++++ b/src/components/ConceptTree.jsx
+@@ -4,13 +4,24 @@ import TopicModal from "./TopicModal.jsx";
+ import { useProgress, collectLeafIds } from "../hooks/useProgress.js";
+ 
+ export default function ConceptTree({ domain, progressKey, title, initialShowAdvanced = false, onBack }) {
+-  const { isDone, markDone } = useProgress(progressKey || domain.domainId);
++  const { isDone, markDone, loading } = useProgress(progressKey || domain.domainId);
+   const [showAdvanced, setShowAdvanced] = useState(initialShowAdvanced);
+   const [activeLeaf, setActiveLeaf] = useState(null);
+ 
+   const leafIds = collectLeafIds(domain.tree);
+   const doneCount = leafIds.filter(isDone).length;
+ 
++  if (loading) {
++    return (
++      <div className="concept-tree-screen">
++        <button className="back-btn" onClick={onBack}>
++          &#8249; Back
++        </button>
++        <p className="subtitle">Loading your progress…</p>
++      </div>
++    );
++  }
++
+   return (
+     <div className={"concept-tree-screen" + (showAdvanced ? " show-advanced" : "")}>
+       <button className="back-btn" onClick={onBack}>
+diff --git a/src/components/DomainPicker.jsx b/src/components/DomainPicker.jsx
+index a9b2899..ff0cb0d 100644
+--- a/src/components/DomainPicker.jsx
++++ b/src/components/DomainPicker.jsx
+@@ -1,23 +1,9 @@
+-import { useState } from "react";
++import { useEffect, useState } from "react";
+ import { domains } from "../data/domains.js";
+ import { collectLeafIds } from "../hooks/useProgress.js";
+ import { loadProjects } from "../data/projects.js";
+-
+-function domainProgress(domain) {
+-  const leafIds = collectLeafIds(domain.tree);
+-  const raw = localStorage.getItem(`tree:${domain.domainId}`);
+-  const done = new Set(raw ? JSON.parse(raw) : []);
+-  return { doneCount: leafIds.filter(id => done.has(id)).length, total: leafIds.length };
+-}
+-
+-function projectProgress(project) {
+-  const domain = domains.find(d => d.domainId === project.domainId);
+-  if (!domain) return { doneCount: 0, total: 0 };
+-  const leafIds = collectLeafIds(domain.tree);
+-  const raw = localStorage.getItem(`tree:${project.id}`);
+-  const done = new Set(raw ? JSON.parse(raw) : []);
+-  return { doneCount: leafIds.filter(id => done.has(id)).length, total: leafIds.length };
+-}
++import { supabase } from "../lib/supabaseClient.js";
++import { useAuth } from "../hooks/useAuth.jsx";
+ 
+ // Free, no-LLM stand-in for real intent understanding. Each authored domain
+ // gets a short list of keywords a typed idea might contain. This only ever
+@@ -37,9 +23,48 @@ function matchDomain(query) {
+ }
+ 
+ export default function DomainPicker({ onSelectTree, onSelectRoadmap, onStartWizard, hasRoadmap }) {
++  const { session, signOut } = useAuth();
++  const userId = session?.user?.id;
++
+   const [query, setQuery] = useState("");
+   const [noMatch, setNoMatch] = useState(false);
+-  const projects = loadProjects();
++  const [projects, setProjects] = useState([]);
++  const [progressByKey, setProgressByKey] = useState({}); // progress_key -> done_ids array
++  const [loading, setLoading] = useState(true);
++
++  useEffect(() => {
++    if (!userId) return;
++    let cancelled = false;
++
++    async function load() {
++      setLoading(true);
++      const [projectRows, { data: progressRows, error }] = await Promise.all([
++        loadProjects(userId),
++        supabase.from("progress").select("progress_key, done_ids").eq("user_id", userId).eq("namespace", "tree")
++      ]);
++      if (cancelled) return;
++      if (error) console.error("Failed to load progress:", error);
++
++      const map = {};
++      (progressRows || []).forEach(row => {
++        map[row.progress_key] = row.done_ids || [];
++      });
++
++      setProjects(projectRows);
++      setProgressByKey(map);
++      setLoading(false);
++    }
++
++    load();
++    return () => {
++      cancelled = true;
++    };
++  }, [userId]);
++
++  function progressFor(key, leafIds) {
++    const doneIds = progressByKey[key] || [];
++    return { doneCount: leafIds.filter(id => doneIds.includes(id)).length, total: leafIds.length };
++  }
+ 
+   function handleAsk() {
+     const match = matchDomain(query);
+@@ -53,6 +78,13 @@ export default function DomainPicker({ onSelectTree, onSelectRoadmap, onStartWiz
+ 
+   return (
+     <div className="picker">
++      <div className="picker-header-row">
++        <div />
++        <button className="sign-out-btn" onClick={signOut}>
++          Sign out
++        </button>
++      </div>
++
+       <h1>What are you building today?</h1>
+       <p className="subtitle">Enter the details of the project you want help with.</p>
+ 
+@@ -77,14 +109,17 @@ export default function DomainPicker({ onSelectTree, onSelectRoadmap, onStartWiz
+         </p>
+       )}
+ 
+-      {projects.length > 0 && (
++      {loading && <p className="subtitle">Loading your projects…</p>}
++
++      {!loading && projects.length > 0 && (
+         <>
+           <p className="explore-label">YOUR PROJECTS</p>
+           <div className="picker-grid">
+             {projects.map(project => {
+-              const { doneCount, total } = projectProgress(project);
+-              const domain = domains.find(d => d.domainId === project.domainId);
+-              const roadmapAvailable = hasRoadmap(project.domainId);
++              const domain = domains.find(d => d.domainId === project.domain_id);
++              const leafIds = domain ? collectLeafIds(domain.tree) : [];
++              const { doneCount, total } = progressFor(project.id, leafIds);
++              const roadmapAvailable = hasRoadmap(project.domain_id);
+               return (
+                 <div key={project.id} className="picker-card">
+                   <span className="picker-card-title">{project.title}</span>
+@@ -95,7 +130,7 @@ export default function DomainPicker({ onSelectTree, onSelectRoadmap, onStartWiz
+                   <div className="picker-card-actions">
+                     <button
+                       className="picker-card-btn"
+-                      onClick={() => onSelectTree(project.domainId, project.id, project.title)}
++                      onClick={() => onSelectTree(project.domain_id, project.id, project.title)}
+                     >
+                       Learn
+                     </button>
+@@ -104,7 +139,7 @@ export default function DomainPicker({ onSelectTree, onSelectRoadmap, onStartWiz
+                       disabled={!roadmapAvailable}
+                       title={roadmapAvailable ? "" : "Roadmap coming soon for this domain"}
+                       onClick={() =>
+-                        roadmapAvailable && onSelectRoadmap(project.domainId, project.id, project.title)
++                        roadmapAvailable && onSelectRoadmap(project.domain_id, project.id, project.title)
+                       }
+                     >
+                       Build
+@@ -120,7 +155,8 @@ export default function DomainPicker({ onSelectTree, onSelectRoadmap, onStartWiz
+       <p className="explore-label">EXPLORE TOPICS</p>
+       <div className="picker-grid">
+         {domains.map(domain => {
+-          const { doneCount, total } = domainProgress(domain);
++          const leafIds = collectLeafIds(domain.tree);
++          const { doneCount, total } = progressFor(domain.domainId, leafIds);
+           const roadmapAvailable = hasRoadmap(domain.domainId);
+           return (
+             <div key={domain.domainId} className="picker-card">
+diff --git a/src/components/RoadmapScreen.jsx b/src/components/RoadmapScreen.jsx
+index 05cf387..cfe3e06 100644
+--- a/src/components/RoadmapScreen.jsx
++++ b/src/components/RoadmapScreen.jsx
+@@ -3,7 +3,7 @@ import DayModal from "./DayModal.jsx";
+ import { useProgress } from "../hooks/useProgress.js";
+ 
+ export default function RoadmapScreen({ roadmap, progressKey, title, onBack }) {
+-  const { isDone, toggleDone } = useProgress(progressKey || roadmap.domainId, "roadmap");
++  const { isDone, toggleDone, loading } = useProgress(progressKey || roadmap.domainId, "roadmap");
+   const [activeDay, setActiveDay] = useState(null);
+ 
+   function dayStatus(day) {
+@@ -13,6 +13,17 @@ export default function RoadmapScreen({ roadmap, progressKey, title, onBack }) {
+     return "partial";
+   }
+ 
++  if (loading) {
++    return (
++      <div className="roadmap-screen">
++        <button className="back-btn" onClick={onBack}>
++          &#8249; Back
++        </button>
++        <p className="subtitle">Loading your progress…</p>
++      </div>
++    );
++  }
++
+   return (
+     <div className="roadmap-screen">
+       <button className="back-btn" onClick={onBack}>
+diff --git a/src/data/projects.js b/src/data/projects.js
+index 1fa3749..26e7cf4 100644
+--- a/src/data/projects.js
++++ b/src/data/projects.js
+@@ -1,19 +1,25 @@
+-const KEY = "projects";
++import { supabase } from "../lib/supabaseClient.js";
+ 
+-export function loadProjects() {
+-  const raw = localStorage.getItem(KEY);
+-  return raw ? JSON.parse(raw) : [];
+-}
+-
+-function makeId() {
+-  return "proj-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
++export async function loadProjects(userId) {
++  const { data, error } = await supabase
++    .from("projects")
++    .select("*")
++    .eq("user_id", userId)
++    .order("created_at", { ascending: false });
++  if (error) {
++    console.error("Failed to load projects:", error);
++    return [];
++  }
++  return data;
+ }
+ 
+ // answers: { comfort, days, depth } from the wizard
+-export function createProject({ title, domainId, comfort, days, depth }) {
+-  const project = { id: makeId(), title, domainId, comfort, days, depth };
+-  const projects = loadProjects();
+-  projects.push(project);
+-  localStorage.setItem(KEY, JSON.stringify(projects));
+-  return project;
++export async function createProject({ userId, title, domainId, comfort, days, depth }) {
++  const { data, error } = await supabase
++    .from("projects")
++    .insert({ user_id: userId, title, domain_id: domainId, comfort, days, depth })
++    .select()
++    .single();
++  if (error) throw error;
++  return data;
+ }
+diff --git a/src/hooks/useAuth.jsx b/src/hooks/useAuth.jsx
+new file mode 100644
+index 0000000..b8fa213
+--- /dev/null
++++ b/src/hooks/useAuth.jsx
+@@ -0,0 +1,37 @@
++import { createContext, useContext, useEffect, useState } from "react";
++import { supabase } from "../lib/supabaseClient.js";
++
++const AuthContext = createContext(null);
++
++export function AuthProvider({ children }) {
++  // undefined = still checking, null = signed out, object = signed in
++  const [session, setSession] = useState(undefined);
++
++  useEffect(() => {
++    supabase.auth.getSession().then(({ data }) => setSession(data.session));
++
++    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
++      setSession(newSession);
++    });
++
++    return () => listener.subscription.unsubscribe();
++  }, []);
++
++  async function signInWithEmail(email) {
++    return supabase.auth.signInWithOtp({ email });
++  }
++
++  async function signOut() {
++    return supabase.auth.signOut();
++  }
++
++  return (
++    <AuthContext.Provider value={{ session, signInWithEmail, signOut }}>
++      {children}
++    </AuthContext.Provider>
++  );
++}
++
++export function useAuth() {
++  return useContext(AuthContext);
++}
+diff --git a/src/hooks/useProgress.js b/src/hooks/useProgress.js
+index a71dffc..ebf437e 100644
+--- a/src/hooks/useProgress.js
++++ b/src/hooks/useProgress.js
+@@ -1,37 +1,72 @@
+ import { useEffect, useState } from "react";
+-
+-function storageKey(namespace, domainId) {
+-  return `${namespace}:${domainId}`;
+-}
++import { supabase } from "../lib/supabaseClient.js";
++import { useAuth } from "./useAuth.jsx";
+ 
+ export function useProgress(progressKey, namespace = "tree") {
+-  const [done, setDone] = useState(() => {
+-    const raw = localStorage.getItem(storageKey(namespace, progressKey));
+-    return new Set(raw ? JSON.parse(raw) : []);
+-  });
++  const { session } = useAuth();
++  const userId = session?.user?.id;
++
++  const [done, setDone] = useState(new Set());
++  const [loading, setLoading] = useState(true);
+ 
+   useEffect(() => {
+-    localStorage.setItem(storageKey(namespace, progressKey), JSON.stringify([...done]));
+-  }, [done, progressKey, namespace]);
++    if (!userId || !progressKey) {
++      setLoading(false);
++      return;
++    }
++    let cancelled = false;
++    setLoading(true);
++
++    supabase
++      .from("progress")
++      .select("done_ids")
++      .eq("user_id", userId)
++      .eq("namespace", namespace)
++      .eq("progress_key", progressKey)
++      .maybeSingle()
++      .then(({ data, error }) => {
++        if (cancelled) return;
++        if (error) console.error("Failed to load progress:", error);
++        setDone(new Set(data?.done_ids || []));
++        setLoading(false);
++      });
++
++    return () => {
++      cancelled = true;
++    };
++  }, [userId, progressKey, namespace]);
++
++  async function persist(nextSet) {
++    setDone(nextSet);
++    if (!userId || !progressKey) return;
++    const { error } = await supabase.from("progress").upsert(
++      {
++        user_id: userId,
++        namespace,
++        progress_key: progressKey,
++        done_ids: [...nextSet]
++      },
++      { onConflict: "user_id,namespace,progress_key" }
++    );
++    if (error) console.error("Failed to save progress:", error);
++  }
+ 
+   function markDone(nodeId) {
+-    setDone(prev => new Set(prev).add(nodeId));
++    persist(new Set(done).add(nodeId));
+   }
+ 
+   function toggleDone(nodeId) {
+-    setDone(prev => {
+-      const next = new Set(prev);
+-      if (next.has(nodeId)) next.delete(nodeId);
+-      else next.add(nodeId);
+-      return next;
+-    });
++    const next = new Set(done);
++    if (next.has(nodeId)) next.delete(nodeId);
++    else next.add(nodeId);
++    persist(next);
+   }
+ 
+   function isDone(nodeId) {
+     return done.has(nodeId);
+   }
+ 
+-  return { done, markDone, toggleDone, isDone };
++  return { done, markDone, toggleDone, isDone, loading };
+ }
+ 
+ // Walks a tree once to collect every leaf id — used to compute "3 of 12 done".
+diff --git a/src/lib/supabaseClient.js b/src/lib/supabaseClient.js
+new file mode 100644
+index 0000000..4d94abb
+--- /dev/null
++++ b/src/lib/supabaseClient.js
+@@ -0,0 +1,14 @@
++import { createClient } from "@supabase/supabase-js";
++
++const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
++const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
++
++if (!supabaseUrl || !supabaseAnonKey) {
++  // Common cause: no .env file yet, or the dev server was started before it
++  // was created (Vite only reads .env at startup — restart `npm run dev`).
++  console.warn(
++    "Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY — check your .env file."
++  );
++}
++
++export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+diff --git a/src/main.jsx b/src/main.jsx
+index f4379c7..02dcf51 100644
+--- a/src/main.jsx
++++ b/src/main.jsx
+@@ -1,10 +1,16 @@
+ import React from "react";
+ import ReactDOM from "react-dom/client";
+ import App from "./App.jsx";
++import { AuthProvider } from "./hooks/useAuth.jsx";
++import AuthGate from "./components/AuthGate.jsx";
+ import "./styles.css";
+ 
+ ReactDOM.createRoot(document.getElementById("root")).render(
+   <React.StrictMode>
+-    <App />
++    <AuthProvider>
++      <AuthGate>
++        <App />
++      </AuthGate>
++    </AuthProvider>
+   </React.StrictMode>
+ );
+diff --git a/src/styles.css b/src/styles.css
+index 12c5a61..30f7db6 100644
+--- a/src/styles.css
++++ b/src/styles.css
+@@ -701,3 +701,92 @@ body {
+   color: white;
+   font-weight: 500;
+ }
++
++/* ---------- Auth ---------- */
++
++.auth-loading {
++  color: var(--text-dim);
++  text-align: center;
++  padding: 60px 20px;
++}
++
++.auth-screen {
++  min-height: 100vh;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  padding: 20px;
++}
++
++.auth-card {
++  background: var(--panel);
++  border: 1px solid var(--border);
++  border-radius: 14px;
++  padding: 28px;
++  max-width: 360px;
++  width: 100%;
++  text-align: center;
++}
++
++.auth-card h1 {
++  font-size: 20px;
++  margin: 0 0 8px;
++}
++
++.auth-card .subtitle {
++  margin: 0 0 18px;
++}
++
++.auth-card input {
++  width: 100%;
++  background: var(--panel-2);
++  border: 1px solid var(--border);
++  border-radius: 8px;
++  color: var(--text);
++  padding: 10px 12px;
++  font-size: 13px;
++  margin-bottom: 10px;
++}
++
++.auth-card button {
++  width: 100%;
++  background: var(--accent);
++  color: white;
++  border: none;
++  padding: 10px;
++  border-radius: 8px;
++  font-size: 13px;
++  cursor: pointer;
++}
++
++.auth-card button:disabled {
++  opacity: 0.5;
++  cursor: not-allowed;
++}
++
++.auth-sent {
++  color: var(--done);
++  font-size: 13px;
++}
++
++.auth-error {
++  color: #e05a5a;
++  font-size: 12px;
++  margin-top: 8px;
++}
++
++.picker-header-row {
++  display: flex;
++  justify-content: space-between;
++  align-items: center;
++}
++
++.sign-out-btn {
++  background: none;
++  border: 1px solid var(--border);
++  color: var(--text-dim);
++  font-size: 12px;
++  padding: 6px 12px;
++  border-radius: 20px;
++  cursor: pointer;
++}
+diff --git a/supabase-schema.sql b/supabase-schema.sql
+new file mode 100644
+index 0000000..5e9b40b
+--- /dev/null
++++ b/supabase-schema.sql
+@@ -0,0 +1,41 @@
++-- Run this once in Supabase's SQL Editor (Project → SQL Editor → New query).
++
++-- Each row is one saved idea a user ran through the wizard.
++create table projects (
++  id uuid primary key default gen_random_uuid(),
++  user_id uuid not null references auth.users(id) on delete cascade,
++  title text not null,
++  domain_id text not null,
++  comfort text,
++  days integer,
++  depth text,
++  created_at timestamptz default now()
++);
++
++-- One row per (user, namespace, progress_key) — namespace is "tree" or
++-- "roadmap", progress_key is either a domainId (fast-path Explore Topics
++-- use) or a project's id (Your Projects use). done_ids mirrors exactly
++-- what used to be a JS Set in localStorage, just stored as a JSON array.
++create table progress (
++  user_id uuid not null references auth.users(id) on delete cascade,
++  namespace text not null,
++  progress_key text not null,
++  done_ids jsonb not null default '[]'::jsonb,
++  updated_at timestamptz default now(),
++  primary key (user_id, namespace, progress_key)
++);
++
++-- Row Level Security: without this, any logged-in user could read or edit
++-- every row in these tables, not just their own.
++alter table projects enable row level security;
++alter table progress enable row level security;
++
++create policy "Users manage their own projects"
++  on projects for all
++  using (auth.uid() = user_id)
++  with check (auth.uid() = user_id);
++
++create policy "Users manage their own progress"
++  on progress for all
++  using (auth.uid() = user_id)
++  with check (auth.uid() = user_id);
+-- 
+2.43.0
+
