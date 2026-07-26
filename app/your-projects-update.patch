@@ -1,0 +1,342 @@
+From f7d08c3e0072e9bc01a4e240c1596819c5272321 Mon Sep 17 00:00:00 2001
+From: AI PM Platform <dev@example.com>
+Date: Sun, 26 Jul 2026 17:49:18 +0000
+Subject: [PATCH] Add Your Projects section, per-project progress tracking,
+ wizard title wiring
+
+---
+ src/App.jsx                      | 38 ++++++++++++++++++-----
+ src/components/ConceptTree.jsx   |  6 ++--
+ src/components/DomainPicker.jsx  | 53 +++++++++++++++++++++++++++++++-
+ src/components/IntakeWizard.jsx  | 15 ++++++---
+ src/components/RoadmapScreen.jsx |  6 ++--
+ src/data/projects.js             | 19 ++++++++++++
+ src/hooks/useProgress.js         |  8 ++---
+ 7 files changed, 123 insertions(+), 22 deletions(-)
+ create mode 100644 src/data/projects.js
+
+diff --git a/src/App.jsx b/src/App.jsx
+index 24c2178..4863de2 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -5,6 +5,7 @@ import RoadmapScreen from "./components/RoadmapScreen.jsx";
+ import IntakeWizard from "./components/IntakeWizard.jsx";
+ import { domains } from "./data/domains.js";
+ import { roadmaps, hasRoadmap } from "./data/roadmaps.js";
++import { createProject } from "./data/projects.js";
+ 
+ export default function App() {
+   // view.screen is one of: "picker" | "wizard" | "tree" | "roadmap"
+@@ -15,10 +16,24 @@ export default function App() {
+       <div className="app">
+         <IntakeWizard
+           domainId={view.domainId}
++          title={view.query}
+           onAbort={() => setView({ screen: "picker" })}
+-          onFinish={(domainId, result) =>
+-            setView({ screen: result.screen, domainId, showAdvanced: result.showAdvanced })
+-          }
++          onFinish={(domainId, projectTitle, answers, result) => {
++            const project = createProject({
++              title: projectTitle,
++              domainId,
++              comfort: answers.comfort,
++              days: answers.days,
++              depth: answers.depth
++            });
++            setView({
++              screen: result.screen,
++              domainId,
++              progressKey: project.id,
++              title: project.title,
++              showAdvanced: result.showAdvanced
++            });
++          }}
+         />
+       </div>
+     );
+@@ -30,6 +45,8 @@ export default function App() {
+       <div className="app">
+         <ConceptTree
+           domain={domain}
++          progressKey={view.progressKey}
++          title={view.title}
+           initialShowAdvanced={Boolean(view.showAdvanced)}
+           onBack={() => setView({ screen: "picker" })}
+         />
+@@ -41,7 +58,12 @@ export default function App() {
+     const roadmap = roadmaps[view.domainId];
+     return (
+       <div className="app">
+-        <RoadmapScreen roadmap={roadmap} onBack={() => setView({ screen: "picker" })} />
++        <RoadmapScreen
++          roadmap={roadmap}
++          progressKey={view.progressKey}
++          title={view.title}
++          onBack={() => setView({ screen: "picker" })}
++        />
+       </div>
+     );
+   }
+@@ -49,9 +71,11 @@ export default function App() {
+   return (
+     <div className="app">
+       <DomainPicker
+-        onSelectTree={domainId => setView({ screen: "tree", domainId })}
+-        onSelectRoadmap={domainId => setView({ screen: "roadmap", domainId })}
+-        onStartWizard={domainId => setView({ screen: "wizard", domainId })}
++        onSelectTree={(domainId, progressKey, title) => setView({ screen: "tree", domainId, progressKey, title })}
++        onSelectRoadmap={(domainId, progressKey, title) =>
++          setView({ screen: "roadmap", domainId, progressKey, title })
++        }
++        onStartWizard={(domainId, query) => setView({ screen: "wizard", domainId, query })}
+         hasRoadmap={hasRoadmap}
+       />
+     </div>
+diff --git a/src/components/ConceptTree.jsx b/src/components/ConceptTree.jsx
+index baecb0a..e0ee65f 100644
+--- a/src/components/ConceptTree.jsx
++++ b/src/components/ConceptTree.jsx
+@@ -3,8 +3,8 @@ import TreeNode from "./TreeNode.jsx";
+ import TopicModal from "./TopicModal.jsx";
+ import { useProgress, collectLeafIds } from "../hooks/useProgress.js";
+ 
+-export default function ConceptTree({ domain, initialShowAdvanced = false, onBack }) {
+-  const { isDone, markDone } = useProgress(domain.domainId);
++export default function ConceptTree({ domain, progressKey, title, initialShowAdvanced = false, onBack }) {
++  const { isDone, markDone } = useProgress(progressKey || domain.domainId);
+   const [showAdvanced, setShowAdvanced] = useState(initialShowAdvanced);
+   const [activeLeaf, setActiveLeaf] = useState(null);
+ 
+@@ -18,7 +18,7 @@ export default function ConceptTree({ domain, initialShowAdvanced = false, onBac
+       </button>
+ 
+       <header>
+-        <h1>{domain.tree.label}</h1>
++        <h1>{title || domain.tree.label}</h1>
+         <p className="subtitle">Tap a concept to expand it. Tap a leaf topic to learn it.</p>
+       </header>
+ 
+diff --git a/src/components/DomainPicker.jsx b/src/components/DomainPicker.jsx
+index 8967ee1..a9b2899 100644
+--- a/src/components/DomainPicker.jsx
++++ b/src/components/DomainPicker.jsx
+@@ -1,6 +1,7 @@
+ import { useState } from "react";
+ import { domains } from "../data/domains.js";
+ import { collectLeafIds } from "../hooks/useProgress.js";
++import { loadProjects } from "../data/projects.js";
+ 
+ function domainProgress(domain) {
+   const leafIds = collectLeafIds(domain.tree);
+@@ -9,6 +10,15 @@ function domainProgress(domain) {
+   return { doneCount: leafIds.filter(id => done.has(id)).length, total: leafIds.length };
+ }
+ 
++function projectProgress(project) {
++  const domain = domains.find(d => d.domainId === project.domainId);
++  if (!domain) return { doneCount: 0, total: 0 };
++  const leafIds = collectLeafIds(domain.tree);
++  const raw = localStorage.getItem(`tree:${project.id}`);
++  const done = new Set(raw ? JSON.parse(raw) : []);
++  return { doneCount: leafIds.filter(id => done.has(id)).length, total: leafIds.length };
++}
++
+ // Free, no-LLM stand-in for real intent understanding. Each authored domain
+ // gets a short list of keywords a typed idea might contain. This only ever
+ // matches what we've actually authored (src/data/*.json) — it can't handle
+@@ -29,12 +39,13 @@ function matchDomain(query) {
+ export default function DomainPicker({ onSelectTree, onSelectRoadmap, onStartWizard, hasRoadmap }) {
+   const [query, setQuery] = useState("");
+   const [noMatch, setNoMatch] = useState(false);
++  const projects = loadProjects();
+ 
+   function handleAsk() {
+     const match = matchDomain(query);
+     if (match) {
+       setNoMatch(false);
+-      onStartWizard(match.domainId);
++      onStartWizard(match.domainId, query);
+     } else {
+       setNoMatch(true);
+     }
+@@ -66,6 +77,46 @@ export default function DomainPicker({ onSelectTree, onSelectRoadmap, onStartWiz
+         </p>
+       )}
+ 
++      {projects.length > 0 && (
++        <>
++          <p className="explore-label">YOUR PROJECTS</p>
++          <div className="picker-grid">
++            {projects.map(project => {
++              const { doneCount, total } = projectProgress(project);
++              const domain = domains.find(d => d.domainId === project.domainId);
++              const roadmapAvailable = hasRoadmap(project.domainId);
++              return (
++                <div key={project.id} className="picker-card">
++                  <span className="picker-card-title">{project.title}</span>
++                  <span className="picker-card-desc">{domain?.domainLabel}</span>
++                  <span className="picker-card-progress">
++                    {doneCount} of {total} topics done
++                  </span>
++                  <div className="picker-card-actions">
++                    <button
++                      className="picker-card-btn"
++                      onClick={() => onSelectTree(project.domainId, project.id, project.title)}
++                    >
++                      Learn
++                    </button>
++                    <button
++                      className="picker-card-btn"
++                      disabled={!roadmapAvailable}
++                      title={roadmapAvailable ? "" : "Roadmap coming soon for this domain"}
++                      onClick={() =>
++                        roadmapAvailable && onSelectRoadmap(project.domainId, project.id, project.title)
++                      }
++                    >
++                      Build
++                    </button>
++                  </div>
++                </div>
++              );
++            })}
++          </div>
++        </>
++      )}
++
+       <p className="explore-label">EXPLORE TOPICS</p>
+       <div className="picker-grid">
+         {domains.map(domain => {
+diff --git a/src/components/IntakeWizard.jsx b/src/components/IntakeWizard.jsx
+index 0057222..d7f9ffc 100644
+--- a/src/components/IntakeWizard.jsx
++++ b/src/components/IntakeWizard.jsx
+@@ -7,12 +7,13 @@ import { domains } from "../data/domains.js";
+ // later, AI-backed version of this same screen.
+ const STEPS = ["confirm", "comfort", "days", "depth", "summary"];
+ 
+-export default function IntakeWizard({ domainId, onAbort, onFinish }) {
++export default function IntakeWizard({ domainId, title, onAbort, onFinish }) {
+   const domain = domains.find(d => d.domainId === domainId);
+   const [stepIndex, setStepIndex] = useState(0);
+   const [answers, setAnswers] = useState({ comfort: null, days: null, depth: null });
+ 
+   const step = STEPS[stepIndex];
++  const projectTitle = title?.trim() || domain?.tree.label;
+ 
+   function next(patch) {
+     if (patch) setAnswers(a => ({ ...a, ...patch }));
+@@ -30,7 +31,7 @@ export default function IntakeWizard({ domainId, onAbort, onFinish }) {
+       {step === "confirm" && (
+         <WizardStep
+           title="Just confirming"
+-          question={`We think you're building: "${domain.tree.label}." Does that match what you had in mind?`}
++          question={`"${projectTitle}" — that's a ${domain.domainLabel} project, right?`}
+           options={[
+             { label: "Yes, that's right", action: () => next() },
+             { label: "Not quite — let me pick manually", action: onAbort }
+@@ -78,6 +79,7 @@ export default function IntakeWizard({ domainId, onAbort, onFinish }) {
+         <div className="wizard-card">
+           <h2>Here's what we've got</h2>
+           <ul className="wizard-summary">
++            <li>Project: {projectTitle}</li>
+             <li>Domain: {domain.domainLabel}</li>
+             <li>
+               Comfort level:{" "}
+@@ -93,13 +95,18 @@ export default function IntakeWizard({ domainId, onAbort, onFinish }) {
+           <div className="wizard-final-actions">
+             <button
+               className="wizard-final-btn primary"
+-              onClick={() => onFinish(domainId, { screen: "tree", showAdvanced: answers.depth === "advanced" })}
++              onClick={() =>
++                onFinish(domainId, projectTitle, answers, {
++                  screen: "tree",
++                  showAdvanced: answers.depth === "advanced"
++                })
++              }
+             >
+               Start learning
+             </button>
+             <button
+               className="wizard-final-btn"
+-              onClick={() => onFinish(domainId, { screen: "roadmap" })}
++              onClick={() => onFinish(domainId, projectTitle, answers, { screen: "roadmap" })}
+             >
+               Jump to roadmap
+             </button>
+diff --git a/src/components/RoadmapScreen.jsx b/src/components/RoadmapScreen.jsx
+index 255d662..05cf387 100644
+--- a/src/components/RoadmapScreen.jsx
++++ b/src/components/RoadmapScreen.jsx
+@@ -2,8 +2,8 @@ import { useState } from "react";
+ import DayModal from "./DayModal.jsx";
+ import { useProgress } from "../hooks/useProgress.js";
+ 
+-export default function RoadmapScreen({ roadmap, onBack }) {
+-  const { isDone, toggleDone } = useProgress(roadmap.domainId, "roadmap");
++export default function RoadmapScreen({ roadmap, progressKey, title, onBack }) {
++  const { isDone, toggleDone } = useProgress(progressKey || roadmap.domainId, "roadmap");
+   const [activeDay, setActiveDay] = useState(null);
+ 
+   function dayStatus(day) {
+@@ -20,7 +20,7 @@ export default function RoadmapScreen({ roadmap, onBack }) {
+       </button>
+ 
+       <header>
+-        <h1>{roadmap.domainLabel} — roadmap</h1>
++        <h1>{title || roadmap.domainLabel} — roadmap</h1>
+         <p className="subtitle">Tap a day to see its checklist.</p>
+       </header>
+ 
+diff --git a/src/data/projects.js b/src/data/projects.js
+new file mode 100644
+index 0000000..1fa3749
+--- /dev/null
++++ b/src/data/projects.js
+@@ -0,0 +1,19 @@
++const KEY = "projects";
++
++export function loadProjects() {
++  const raw = localStorage.getItem(KEY);
++  return raw ? JSON.parse(raw) : [];
++}
++
++function makeId() {
++  return "proj-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
++}
++
++// answers: { comfort, days, depth } from the wizard
++export function createProject({ title, domainId, comfort, days, depth }) {
++  const project = { id: makeId(), title, domainId, comfort, days, depth };
++  const projects = loadProjects();
++  projects.push(project);
++  localStorage.setItem(KEY, JSON.stringify(projects));
++  return project;
++}
+diff --git a/src/hooks/useProgress.js b/src/hooks/useProgress.js
+index 8dc64e3..a71dffc 100644
+--- a/src/hooks/useProgress.js
++++ b/src/hooks/useProgress.js
+@@ -4,15 +4,15 @@ function storageKey(namespace, domainId) {
+   return `${namespace}:${domainId}`;
+ }
+ 
+-export function useProgress(domainId, namespace = "tree") {
++export function useProgress(progressKey, namespace = "tree") {
+   const [done, setDone] = useState(() => {
+-    const raw = localStorage.getItem(storageKey(namespace, domainId));
++    const raw = localStorage.getItem(storageKey(namespace, progressKey));
+     return new Set(raw ? JSON.parse(raw) : []);
+   });
+ 
+   useEffect(() => {
+-    localStorage.setItem(storageKey(namespace, domainId), JSON.stringify([...done]));
+-  }, [done, domainId, namespace]);
++    localStorage.setItem(storageKey(namespace, progressKey), JSON.stringify([...done]));
++  }, [done, progressKey, namespace]);
+ 
+   function markDone(nodeId) {
+     setDone(prev => new Set(prev).add(nodeId));
+-- 
+2.43.0
+
