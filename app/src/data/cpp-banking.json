@@ -1,0 +1,152 @@
+{
+  "domainId": "cpp-banking",
+  "domainLabel": "C++ (banking app example)",
+  "description": "Concepts needed to build a simple banking application in C++.",
+  "tree": {
+    "id": "root",
+    "label": "Banking app in C++",
+    "children": [
+      {
+        "id": "cpp",
+        "label": "C++",
+        "children": [
+          {
+            "id": "core-cpp",
+            "label": "Core C++",
+            "children": [
+              {
+                "id": "datatypes",
+                "label": "Data types",
+                "children": [
+                  {
+                    "id": "arrays",
+                    "label": "Arrays",
+                    "leaf": true,
+                    "explain": {
+                      "beginner": "Placeholder — what an array is and why banking records often use them.",
+                      "advanced": "Placeholder — array memory layout, fixed vs dynamic sizing."
+                    },
+                    "resources": []
+                  },
+                  {
+                    "id": "strings",
+                    "label": "Strings",
+                    "leaf": true,
+                    "explain": {
+                      "beginner": "Placeholder — storing and comparing text like account names.",
+                      "advanced": "Placeholder — std::string internals, avoiding unnecessary copies."
+                    },
+                    "resources": []
+                  },
+                  {
+                    "id": "structs",
+                    "label": "Structs",
+                    "advanced": true,
+                    "leaf": true,
+                    "explain": {
+                      "beginner": "Placeholder — grouping related fields, e.g. an Account record.",
+                      "advanced": "Placeholder — struct layout, padding, and passing by reference."
+                    },
+                    "resources": []
+                  }
+                ]
+              },
+              {
+                "id": "functions",
+                "label": "Functions",
+                "children": [
+                  {
+                    "id": "func-basics",
+                    "label": "Function basics",
+                    "leaf": true,
+                    "explain": {
+                      "beginner": "Placeholder — writing a function to deposit or withdraw funds.",
+                      "advanced": "Placeholder — pass-by-value vs pass-by-reference tradeoffs."
+                    },
+                    "resources": []
+                  },
+                  {
+                    "id": "overloading",
+                    "label": "Overloading",
+                    "advanced": true,
+                    "leaf": true,
+                    "explain": {
+                      "beginner": "Placeholder — why you might want two versions of the same function name.",
+                      "advanced": "Placeholder — overload resolution rules and ambiguity pitfalls."
+                    },
+                    "resources": []
+                  }
+                ]
+              },
+              {
+                "id": "memory",
+                "label": "Memory management",
+                "advanced": true,
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — a gentle intro to why memory matters at all.",
+                  "advanced": "Placeholder — stack vs heap, RAII, smart pointers."
+                },
+                "resources": []
+              }
+            ]
+          },
+          {
+            "id": "gui-libs",
+            "label": "GUI libraries",
+            "children": [
+              {
+                "id": "qt-intro",
+                "label": "Intro to Qt",
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — what Qt is and why it's a common choice for desktop UIs.",
+                  "advanced": "Placeholder — Qt's signal/slot architecture."
+                },
+                "resources": []
+              },
+              {
+                "id": "qt-forms",
+                "label": "Building forms in Qt",
+                "advanced": true,
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — a simple deposit/withdraw form walkthrough.",
+                  "advanced": "Placeholder — layout managers and custom widget composition."
+                },
+                "resources": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "maths",
+        "label": "Maths behind banking apps",
+        "children": [
+          {
+            "id": "interest",
+            "label": "Interest calculations",
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — simple vs compound interest, worked example.",
+              "advanced": "Placeholder — interest accrual scheduling and edge cases."
+            },
+            "resources": []
+          },
+          {
+            "id": "rounding",
+            "label": "Rounding & precision",
+            "advanced": true,
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — why 0.1 + 0.2 isn't exactly 0.3 in code.",
+              "advanced": "Placeholder — using fixed-point or integer cents instead of floats for money."
+            },
+            "resources": []
+          }
+        ]
+      }
+    ]
+  }
+}
