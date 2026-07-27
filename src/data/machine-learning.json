@@ -1,0 +1,138 @@
+{
+  "domainId": "machine-learning",
+  "domainLabel": "Machine Learning",
+  "description": "Concepts needed to build a first machine learning project end to end.",
+  "tree": {
+    "id": "root",
+    "label": "ML project",
+    "children": [
+      {
+        "id": "foundations",
+        "label": "Foundations",
+        "children": [
+          {
+            "id": "python-for-ml",
+            "label": "Python for ML",
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — the handful of Python patterns used constantly in ML code.",
+              "advanced": "Placeholder — vectorized operations and why loops are slow here."
+            },
+            "resources": []
+          },
+          {
+            "id": "linear-algebra-basics",
+            "label": "Linear algebra basics",
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — vectors and matrices as just organized numbers.",
+              "advanced": "Placeholder — matrix multiplication as the core ML operation."
+            },
+            "resources": []
+          },
+          {
+            "id": "stats-probability",
+            "label": "Statistics & probability basics",
+            "advanced": true,
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — mean, variance, and what a distribution is.",
+              "advanced": "Placeholder — Bayesian vs frequentist framing, why it matters for models."
+            },
+            "resources": []
+          }
+        ]
+      },
+      {
+        "id": "core-ml",
+        "label": "Core ML",
+        "children": [
+          {
+            "id": "supervised-learning",
+            "label": "Supervised learning",
+            "children": [
+              {
+                "id": "regression",
+                "label": "Regression",
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — predicting a number, like a house price.",
+                  "advanced": "Placeholder — regularization (L1/L2) and bias-variance tradeoff."
+                },
+                "resources": []
+              },
+              {
+                "id": "classification",
+                "label": "Classification",
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — predicting a category, like spam or not spam.",
+                  "advanced": "Placeholder — decision boundaries and evaluation beyond accuracy."
+                },
+                "resources": []
+              }
+            ]
+          },
+          {
+            "id": "unsupervised-learning",
+            "label": "Unsupervised learning",
+            "advanced": true,
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — finding groups in data with no labeled answers.",
+              "advanced": "Placeholder — clustering algorithms and dimensionality reduction."
+            },
+            "resources": []
+          },
+          {
+            "id": "model-evaluation",
+            "label": "Model evaluation",
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — how do you know if your model is actually good.",
+              "advanced": "Placeholder — precision/recall tradeoffs, cross-validation."
+            },
+            "resources": []
+          }
+        ]
+      },
+      {
+        "id": "tools",
+        "label": "Tools",
+        "children": [
+          {
+            "id": "numpy-pandas",
+            "label": "NumPy & pandas",
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — loading and shaping your dataset before modeling.",
+              "advanced": "Placeholder — efficient data pipelines for larger datasets."
+            },
+            "resources": []
+          },
+          {
+            "id": "sklearn-basics",
+            "label": "scikit-learn basics",
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — training your first model in a few lines of code.",
+              "advanced": "Placeholder — pipelines, hyperparameter search."
+            },
+            "resources": []
+          },
+          {
+            "id": "neural-nets-intro",
+            "label": "Neural networks intro",
+            "advanced": true,
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — what a neural network is, at a conceptual level.",
+              "advanced": "Placeholder — backpropagation and why depth helps (and hurts)."
+            },
+            "resources": []
+          }
+        ]
+      }
+    ]
+  }
+}

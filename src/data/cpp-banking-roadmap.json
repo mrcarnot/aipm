@@ -1,0 +1,149 @@
+{
+  "domainId": "cpp-banking",
+  "domainLabel": "C++ (banking app example)",
+  "totalDays": 7,
+  "days": [
+    {
+      "day": 0,
+      "title": "Plan & setup",
+      "tasks": [
+        {
+          "id": "d0-t1",
+          "label": "Write down your core features: deposit, withdraw, check balance",
+          "hint": "Placeholder — keep this list to 3-4 features for a 7-day build."
+        },
+        {
+          "id": "d0-t2",
+          "label": "Set up your project folder and get a blank C++ program compiling",
+          "hint": "Placeholder — a minimal main.cpp that just prints something is enough."
+        },
+        {
+          "id": "d0-t3",
+          "label": "Pick a GUI library (Qt) and get its \"hello world\" example running",
+          "hint": "Placeholder — don't build any real UI yet, just confirm the setup works."
+        }
+      ]
+    },
+    {
+      "day": 1,
+      "title": "Core data",
+      "tasks": [
+        {
+          "id": "d1-t1",
+          "label": "Define an Account struct (name, balance)",
+          "hint": "Placeholder — see the concept tree's Structs topic if this is new."
+        },
+        {
+          "id": "d1-t2",
+          "label": "Store a few Accounts in memory (a vector of Account)",
+          "hint": "Placeholder — see the concept tree's Arrays topic."
+        },
+        {
+          "id": "d1-t3",
+          "label": "Write a function to find an account by name",
+          "hint": "Placeholder — a simple loop is fine for now."
+        }
+      ]
+    },
+    {
+      "day": 2,
+      "title": "Core banking logic",
+      "tasks": [
+        {
+          "id": "d2-t1",
+          "label": "Write a deposit function that increases an account's balance",
+          "hint": "Placeholder — see the concept tree's Function basics topic."
+        },
+        {
+          "id": "d2-t2",
+          "label": "Write a withdraw function that checks for sufficient balance first",
+          "hint": "Placeholder — think about what should happen on insufficient funds."
+        },
+        {
+          "id": "d2-t3",
+          "label": "Write a simple interest calculation function",
+          "hint": "Placeholder — see the concept tree's Interest calculations topic."
+        }
+      ]
+    },
+    {
+      "day": 3,
+      "title": "GUI basics",
+      "tasks": [
+        {
+          "id": "d3-t1",
+          "label": "Build a main window with a balance display",
+          "hint": "Placeholder — see the concept tree's Intro to Qt topic."
+        },
+        {
+          "id": "d3-t2",
+          "label": "Add deposit and withdraw buttons (not wired up yet)",
+          "hint": "Placeholder — see the concept tree's Building forms in Qt topic."
+        }
+      ]
+    },
+    {
+      "day": 4,
+      "title": "Wire logic to the GUI",
+      "tasks": [
+        {
+          "id": "d4-t1",
+          "label": "Connect the deposit button to your deposit function",
+          "hint": "Placeholder — this is where Qt's signal/slot pattern comes in."
+        },
+        {
+          "id": "d4-t2",
+          "label": "Connect the withdraw button, including the insufficient-funds case",
+          "hint": "Placeholder — show an error message in the UI, don't just fail silently."
+        },
+        {
+          "id": "d4-t3",
+          "label": "Make the balance display update live after each action",
+          "hint": "Placeholder — refresh the label text after every deposit/withdraw."
+        }
+      ]
+    },
+    {
+      "day": 5,
+      "title": "Persistence & input handling",
+      "tasks": [
+        {
+          "id": "d5-t1",
+          "label": "Save accounts to a file when the app closes",
+          "hint": "Placeholder — a plain text file is fine for a first pass."
+        },
+        {
+          "id": "d5-t2",
+          "label": "Load accounts back in when the app starts",
+          "hint": "Placeholder — mirror whatever format you used to save."
+        },
+        {
+          "id": "d5-t3",
+          "label": "Handle bad input gracefully (e.g. negative deposit amounts)",
+          "hint": "Placeholder — see the concept tree's Rounding & precision topic for money specifically."
+        }
+      ]
+    },
+    {
+      "day": 6,
+      "title": "Polish & test",
+      "tasks": [
+        {
+          "id": "d6-t1",
+          "label": "Test edge cases: zero balance, exact-balance withdrawal, repeated deposits",
+          "hint": "Placeholder — write down what you tested, not just that it \"worked\"."
+        },
+        {
+          "id": "d6-t2",
+          "label": "Clean up the UI layout and labels",
+          "hint": "Placeholder — small spacing/label fixes go a long way."
+        },
+        {
+          "id": "d6-t3",
+          "label": "Write a short README describing what the app does",
+          "hint": "Placeholder — a few sentences plus how to build/run it."
+        }
+      ]
+    }
+  ]
+}

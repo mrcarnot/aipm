@@ -1,0 +1,182 @@
+{
+  "domainId": "web-development",
+  "domainLabel": "Web Development",
+  "description": "Concepts needed to build a typical full-stack web app end to end.",
+  "tree": {
+    "id": "root",
+    "label": "Web app",
+    "children": [
+      {
+        "id": "frontend",
+        "label": "Frontend",
+        "children": [
+          {
+            "id": "html-css",
+            "label": "HTML & CSS",
+            "children": [
+              {
+                "id": "html-basics",
+                "label": "HTML basics",
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — structuring a page with semantic tags.",
+                  "advanced": "Placeholder — accessibility and semantic HTML conventions."
+                },
+                "resources": []
+              },
+              {
+                "id": "css-layout",
+                "label": "CSS layout (Flexbox / Grid)",
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — arranging elements on the page without floats.",
+                  "advanced": "Placeholder — when to use Grid vs Flexbox, nested layouts."
+                },
+                "resources": []
+              },
+              {
+                "id": "responsive-design",
+                "label": "Responsive design",
+                "advanced": true,
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — making a page look right on a phone too.",
+                  "advanced": "Placeholder — breakpoints, container queries, mobile-first CSS."
+                },
+                "resources": []
+              }
+            ]
+          },
+          {
+            "id": "javascript",
+            "label": "JavaScript",
+            "children": [
+              {
+                "id": "js-fundamentals",
+                "label": "JS fundamentals",
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — variables, functions, and control flow in JS.",
+                  "advanced": "Placeholder — closures, hoisting, and scope in depth."
+                },
+                "resources": []
+              },
+              {
+                "id": "dom-manipulation",
+                "label": "DOM manipulation",
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — changing what's on the page in response to clicks.",
+                  "advanced": "Placeholder — event delegation and performance considerations."
+                },
+                "resources": []
+              },
+              {
+                "id": "async-js",
+                "label": "Async JS (promises / fetch)",
+                "advanced": true,
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — fetching data from a server without freezing the page.",
+                  "advanced": "Placeholder — async/await, error handling, race conditions."
+                },
+                "resources": []
+              }
+            ]
+          },
+          {
+            "id": "frontend-framework",
+            "label": "Frontend framework (React basics)",
+            "advanced": true,
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — components, props, and state at a high level.",
+              "advanced": "Placeholder — component lifecycle, hooks, and re-render behavior."
+            },
+            "resources": []
+          }
+        ]
+      },
+      {
+        "id": "backend",
+        "label": "Backend",
+        "children": [
+          {
+            "id": "server-basics",
+            "label": "Server basics (Node / Express)",
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — what a server does and how it responds to requests.",
+              "advanced": "Placeholder — middleware, routing structure at scale."
+            },
+            "resources": []
+          },
+          {
+            "id": "rest-apis",
+            "label": "REST APIs",
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — GET/POST and what an endpoint is.",
+              "advanced": "Placeholder — REST conventions, status codes, versioning."
+            },
+            "resources": []
+          },
+          {
+            "id": "databases",
+            "label": "Databases",
+            "children": [
+              {
+                "id": "sql-basics",
+                "label": "SQL basics",
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — storing and querying rows in a table.",
+                  "advanced": "Placeholder — joins, indexing, normalization."
+                },
+                "resources": []
+              },
+              {
+                "id": "db-connection",
+                "label": "Connecting a database to your backend",
+                "advanced": true,
+                "leaf": true,
+                "explain": {
+                  "beginner": "Placeholder — how your server talks to the database.",
+                  "advanced": "Placeholder — connection pooling and query safety (parameterized queries)."
+                },
+                "resources": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "deployment",
+        "label": "Deployment",
+        "children": [
+          {
+            "id": "hosting-basics",
+            "label": "Hosting basics",
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — putting your app somewhere the internet can reach it.",
+              "advanced": "Placeholder — static vs server hosting, CDNs."
+            },
+            "resources": []
+          },
+          {
+            "id": "env-config",
+            "label": "Environment variables & config",
+            "advanced": true,
+            "leaf": true,
+            "explain": {
+              "beginner": "Placeholder — keeping secrets out of your code.",
+              "advanced": "Placeholder — per-environment config strategies."
+            },
+            "resources": []
+          }
+        ]
+      }
+    ]
+  }
+}
